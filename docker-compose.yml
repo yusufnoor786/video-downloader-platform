@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: video-downloader-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=sqlite:./data/database.db
+      - REDIS_URL=redis://redis:6379
+      - USE_REDIS=false
+      - JWT_SECRET=dev-secret-key-change-in-production
+      - LOG_LEVEL=debug
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+      - ./downloads:/app/downloads
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - video-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: video-downloader-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - video-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: video-downloader-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - video-network
+
+volumes:
+  redis_data:
+
+networks:
+  video-network:
+    driver: bridge
